@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>CLV & Churn Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+    <header>
+        <h1>Customer Intelligence Dashboard</h1>
+        <nav>
+            <a href="/">Dashboard</a>
+            <a href="/simulator">Persona Simulator</a>
+        </nav>
+    </header>
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        <p>CLV & Churn Analytics System</p>
+    </footer>
+
+</body>
+
+</html>

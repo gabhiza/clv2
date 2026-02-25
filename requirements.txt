@@ -1,0 +1,10 @@
+flask
+pandas
+numpy
+joblib
+xgboost
+lifetimes
+cloudpickle
+scikit-learn
+gunicorn
+requests

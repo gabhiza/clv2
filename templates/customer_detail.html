@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Customer {{ customer["Customer ID"] }}</h2>
+
+<ul>
+    <li><strong>CLV (6 months):</strong> ${{ "%.2f"|format(customer["CLV_6M"]) }}</li>
+    <li><strong>Churn Probability:</strong> {{ customer["ChurnProbability"] }}</li>
+    <li><strong>Churn Risk:</strong> {{ customer["ChurnRisk"] }}</li>
+    <li><strong>P-Alive:</strong> {{ customer["P_Alive"] }}</li>
+    <li><strong>RFM Segment:</strong> {{ customer["RFM_Segment"] }}</li>
+    <li><strong>Recommended Action:</strong> {{ customer["RecommendedAction"] }}</li>
+</ul>
+
+<a href="/customers">← Back to Customers</a>
+{% endblock %}

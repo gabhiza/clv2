@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="glass-card">
+    <h2>Multi-Input Action Simulator</h2>
+    <p class="text-muted" style="margin-bottom: 2rem;">Simulate customer scenarios to determine the optimal retention
+        strategy.</p>
+
+    <div class="form-grid">
+        <div class="field">
+            <label>RFM Segment</label>
+            <select id="segment">
+                <option value="Champion">Champion</option>
+                <option value="Loyalist">Loyalist</option>
+                <option value="Potential Loyalist">Potential Loyalist</option>
+                <option value="At Risk">At Risk</option>
+                <option value="Lost">Lost</option>
+                <option value="Hibernating">Hibernating</option>
+            </select>
+        </div>
+
+        <div class="field">
+            <label>Churn Risk</label>
+            <select id="risk">
+                <option value="Low Risk">Low Risk</option>
+                <option value="Medium Risk">Medium Risk</option>
+                <option value="High Risk">High Risk</option>
+            </select>
+        </div>
+
+        <div class="field">
+            <label>Predicted CLV (6M)</label>
+            <input type="number" id="clv" value="500" step="50">
+        </div>
+
+        <div class="field" style="justify-content: flex-end;">
+            <button onclick="runSimulation()">Run Simulation</button>
+        </div>
+    </div>
+
+    <div id="resultArea" class="result-area">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+                <h3 style="margin-top: 0;">Recommended Action</h3>
+                <p id="actionText" style="font-size: 1.25rem; font-weight: 600; color: #818cf8;"></p>
+            </div>
+            <div style="text-align: right;">
+                <label>Priority</label>
+                <div id="priorityBadge" class="badge" style="display: inline-block; margin-top: 0.5rem;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function runSimulation() {
+        const data = {
+            segment: document.getElementById('segment').value,
+            risk: document.getElementById('risk').value,
+            clv: document.getElementById('clv').value
+        };
+
+        const response = await fetch('/api/simulate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        document.getElementById('actionText').innerText = result.recommended_action;
+
+        const badge = document.getElementById('priorityBadge');
+        badge.innerText = result.priority;
+        badge.className = 'badge ' + result.priority.toLowerCase();
+
+        document.getElementById('resultArea').style.display = 'block';
+    }
+</script>
+{% endblock %}

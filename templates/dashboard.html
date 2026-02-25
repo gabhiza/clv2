@@ -1,0 +1,547 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="dashboard-header">
+    <h2>Segment Intelligence Dashboard</h2>
+    <p class="text-muted">Aggregate analytics across customer segments</p>
+</div>
+
+<div class="summary-grid">
+    <div class="glass-card stat-card">
+        <label>Total Customers</label>
+        <div class="value">{{ summary.total_customers }}</div>
+    </div>
+    <div class="glass-card stat-card">
+        <label>30D Revenue Forecast</label>
+        <div class="value">${{ "{:,.2f}".format(summary.total_expected_revenue) }}</div>
+    </div>
+    <div class="glass-card stat-card">
+        <label>Avg Customer Value (6M)</label>
+        <div class="value">${{ "{:,.2f}".format(summary.avg_clv) }}</div>
+    </div>
+    <div class="glass-card stat-card high-risk">
+        <label>At High Risk</label>
+        <div class="value">{{ summary.high_risk_count }}</div>
+    </div>
+</div>
+
+<div class="main-grid">
+    <!-- 1. Churn Prediction Analytics -->
+    <div class="glass-card">
+        <h3>Churn Risk by Segment</h3>
+        <table class="report-table">
+            <thead>
+                <tr>
+                    <th>Segment</th>
+                    <th>Low Risk</th>
+                    <th>Medium Risk</th>
+                    <th>High Risk</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for segment, counts in churn_counts.items() %}
+                <tr>
+                    <td>{{ segment }}</td>
+                    <td>{{ counts.get('Low Risk', 0) }}</td>
+                    <td>{{ counts.get('Medium Risk', 0) }}</td>
+                    <td><span class="text-danger">{{ counts.get('High Risk', 0) }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 2. CLV Analytics -->
+    <div class="glass-card">
+        <h3>Average CLV (6M) by Segment</h3>
+        <div class="chart-container">
+            {% for segment, val in avg_clv_segment.items() %}
+            <div class="bar-row">
+                <div class="bar-label">{{ segment }}</div>
+                <div class="bar-track">
+                    <div class="bar-fill clv" style="width: {{ (val / summary.avg_clv * 50)|round }}%;"></div>
+                </div>
+                <div class="bar-value">${{ "{:,.0f}".format(val) }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 3. Short-term Revenue Prediction (30D) -->
+    <div class="glass-card">
+        <h3>30D Revenue Contribution</h3>
+        <div class="chart-container">
+            {% for segment, val in revenue_by_segment.items() %}
+            <div class="bar-row">
+                <div class="bar-label">{{ segment }}</div>
+                <div class="bar-track">
+                    <div class="bar-fill revenue"
+                        style="width: {{ (val / summary.total_expected_revenue * 100)|round }}%;"></div>
+                </div>
+                <div class="bar-value">${{ "{:,.0f}".format(val) }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 4. RFM ROI Calculator (Interactive Preview) -->
+    <div class="glass-card roi-card">
+        <h3>Retention ROI Calculator</h3>
+        <div class="form-grid">
+            <div class="field">
+                <label>Avg Segment CLV</label>
+                <input type="number" id="roi_clv" value="{{ summary.avg_clv|round }}">
+            </div>
+            <div class="field">
+                <label>Retention Cost ($)</label>
+                <input type="number" id="retention_cost" value="50">
+            </div>
+            <div class="field">
+                <label>Success Prob (%)</label>
+                <input type="number" id="success_prob" value="30">
+            </div>
+            <button onclick="calculateROI()" class="btn-full">Calculate ROI</button>
+        </div>
+        <div id="roi_result" class="roi-result" style="display:none;">
+            <div class="roi-value" id="roi_val">--</div>
+            <p id="roi_desc"></p>
+        </div>
+    </div>
+</div>
+
+<!-- Intelligence Lab Section -->
+<section style="margin-top: 3rem;">
+    <h2 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px;">
+        <span style="background: #818cf8; width: 8px; height: 32px; border-radius: 4px;"></span>
+        Strategic Analytics Lab
+    </h2>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 2rem;">
+        <!-- Churn Prediction Lab -->
+        <div class="glass-card">
+            <h3 style="display: flex; align-items: center; gap: 8px;"><i class="fas fa-user-shield"></i> Churn Lab</h3>
+            <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 1.25rem;">XGBoost-powered churn risk
+                simulation.</p>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="field">
+                    <label>Frequency</label>
+                    <input type="number" id="churn_f" value="5">
+                </div>
+                <div class="field">
+                    <label>Monetary</label>
+                    <input type="number" id="churn_m" value="1000">
+                </div>
+                <div class="field">
+                    <label>Purchase Rate</label>
+                    <input type="number" id="churn_pr" value="0.05" step="0.01">
+                </div>
+                <div class="field">
+                    <label>Avg Interpurchase</label>
+                    <input type="number" id="churn_ip" value="30">
+                </div>
+                <div class="field">
+                    <label>Active Months</label>
+                    <input type="number" id="churn_am" value="12">
+                </div>
+                <div class="field">
+                    <label>Tenure Days</label>
+                    <input type="number" id="churn_td" value="365">
+                </div>
+                <div class="field" style="grid-column: span 2;">
+                    <label>Inactivity Ratio</label>
+                    <input type="number" id="churn_ir" value="0.1" step="0.01">
+                </div>
+            </div>
+            <button onclick="runChurnLab()" class="btn-full">Predict Churn</button>
+            <div id="churn_lab_res" style="display:none; margin-top:1.5rem; text-align:center;">
+                <div style="font-size: 2rem; font-weight: 700;" id="churn_prob">--</div>
+                <div id="churn_risk_tag" style="margin-top:5px; font-weight:600;">--</div>
+            </div>
+        </div>
+
+        <!-- CLV Prediction Lab -->
+        <div class="glass-card">
+            <h3 style="display: flex; align-items: center; gap: 8px;"><i class="fas fa-gem"></i> CLV Lab</h3>
+            <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 1.25rem;">Lifetimes-based 6M Value Forecast.
+            </p>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="field">
+                    <label>Frequency (f)</label>
+                    <input type="number" id="clv_f_in" value="10">
+                </div>
+                <div class="field">
+                    <label>Recency (r)</label>
+                    <input type="number" id="clv_r_in" value="100">
+                </div>
+                <div class="field">
+                    <label>Tenure (T)</label>
+                    <input type="number" id="clv_t_in" value="200">
+                </div>
+                <div class="field">
+                    <label>Avg Order Value</label>
+                    <input type="number" id="clv_m_in" value="150" step="10">
+                </div>
+            </div>
+            <button onclick="runCLVLab()" class="btn-full" style="background:#10b981;">Predict CLV</button>
+            <div id="clv_lab_res" style="display:none; margin-top:1.5rem; text-align:center;">
+                <div style="font-size: 2rem; font-weight: 700; color:#10b981;" id="clv_pred_val">--</div>
+                <p style="font-size:0.8rem; color:#94a3b8;">Predicted Future Value (6M)</p>
+            </div>
+        </div>
+
+        <!-- RFM & Recommendation Lab -->
+        <div class="glass-card">
+            <h3 style="display: flex; align-items: center; gap: 8px;"><i class="fas fa-chess-knight"></i> Segment Lab
+            </h3>
+            <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 1.25rem;">RFM & Profitability Strategy Lab.
+            </p>
+            <div class="field">
+                <label>Recency</label>
+                <input type="number" id="lab_r" value="30">
+            </div>
+            <div class="field">
+                <label>Frequency</label>
+                <input type="number" id="lab_f" value="5">
+            </div>
+            <div class="field">
+                <label>Monetary</label>
+                <input type="number" id="lab_m" value="2000">
+            </div>
+            <button onclick="runLabCalc()" class="btn-full" style="background:#f59e0b;">Analyze Strategy</button>
+
+            <div id="lab_calc_res" style="display:none; margin-top:1.5rem;">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; text-align:center;">
+                    <div style="background:rgba(0,0,0,0.2); padding:10px; border-radius:8px;">
+                        <label style="font-size:0.7rem; color:#94a3b8;">RFM SCORE</label>
+                        <div style="font-size:1.2rem; font-weight:bold;" id="lab_rfm_score">--</div>
+                    </div>
+                    <div style="background:rgba(0,0,0,0.2); padding:10px; border-radius:8px;">
+                        <label style="font-size:0.7rem; color:#94a3b8;">EST. PROFIT</label>
+                        <div style="font-size:1.2rem; font-weight:bold; color:#fbbf24;" id="lab_profit">--</div>
+                    </div>
+                </div>
+                <div
+                    style="margin-top:1rem; padding:1rem; background:rgba(245, 158, 11, 0.1); border-left: 4px solid #f59e0b; border-radius:4px;">
+                    <div style="font-size:0.75rem; font-weight:bold; color:#fbbf24;">STRATEGY</div>
+                    <div id="lab_recom" style="margin-top:4px; font-size:0.95rem;">--</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script>
+    function calculateROI() {
+        const clv = parseFloat(document.getElementById('roi_clv').value);
+        const cost = parseFloat(document.getElementById('retention_cost').value);
+        const prob = parseFloat(document.getElementById('success_prob').value) / 100;
+
+        const expected_gain = clv * prob;
+        const roi = expected_gain - cost;
+        const roi_pct = (roi / cost) * 100;
+
+        const resDiv = document.getElementById('roi_result');
+        const valDiv = document.getElementById('roi_val');
+        const descDiv = document.getElementById('roi_desc');
+
+        resDiv.style.display = 'block';
+        valDiv.innerText = (roi_pct > 0 ? '+' : '') + roi_pct.toFixed(1) + '%';
+        valDiv.style.color = roi > 0 ? '#4ade80' : '#f87171';
+        descDiv.innerText = `Expected Gain: $${expected_gain.toFixed(2)} | Net ROI: $${roi.toFixed(2)}`;
+    }
+
+    async function runChurnLab() {
+        const btn = event.target;
+        const originalText = btn.innerText;
+        btn.innerText = "Predicting...";
+        btn.disabled = true;
+
+        const data = {
+            Frequency: parseFloat(document.getElementById('churn_f').value),
+            monetary: parseFloat(document.getElementById('churn_m').value),
+            PurchaseRate: parseFloat(document.getElementById('churn_pr').value),
+            AvgInterpurchaseDays: parseFloat(document.getElementById('churn_ip').value),
+            ActiveMonths: parseFloat(document.getElementById('churn_am').value),
+            TenureDays: parseFloat(document.getElementById('churn_td').value),
+            InactivityRatio: parseFloat(document.getElementById('churn_ir').value)
+        };
+        try {
+            const resp = await fetch('/api/predict-churn-lab', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const res = await resp.json();
+            if (res.error) throw new Error(res.error);
+
+            const resDiv = document.getElementById('churn_lab_res');
+            resDiv.style.display = 'block';
+            const prob = res.churn_probability * 100;
+            // Use higher precision for tiny risk numbers
+            if (prob > 0 && prob < 0.01) {
+                document.getElementById('churn_prob').innerText = prob.toFixed(4) + '%';
+            } else {
+                document.getElementById('churn_prob').innerText = prob.toFixed(2) + '%';
+            }
+
+            const tag = document.getElementById('churn_risk_tag');
+            tag.innerText = res.churn_risk;
+            tag.style.color = res.churn_risk === 'High Risk' ? '#f87171' : (res.churn_risk === 'Medium Risk' ? '#fbbf24' : '#4ade80');
+        } catch (err) {
+            console.error(err);
+            alert("Churn Prediction Error: " + err.message);
+        } finally {
+            btn.innerText = originalText;
+            btn.disabled = false;
+        }
+    }
+
+    async function runCLVLab() {
+        const btn = event.target;
+        const originalText = btn.innerText;
+        btn.innerText = "Predicting...";
+        btn.disabled = true;
+
+        const data = {
+            frequency: parseFloat(document.getElementById('clv_f_in').value),
+            recency: parseFloat(document.getElementById('clv_r_in').value),
+            T: parseFloat(document.getElementById('clv_t_in').value),
+            monetary_value: parseFloat(document.getElementById('clv_m_in').value)
+        };
+        try {
+            const resp = await fetch('/api/predict-clv-lab', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const res = await resp.json();
+            if (res.error) throw new Error(res.error);
+
+            document.getElementById('clv_lab_res').style.display = 'block';
+            document.getElementById('clv_pred_val').innerText = '$' + res.clv_6m.toLocaleString();
+        } catch (err) {
+            console.error(err);
+            alert("CLV Prediction Error: " + err.message);
+        } finally {
+            btn.innerText = originalText;
+            btn.disabled = false;
+        }
+    }
+
+    async function runLabCalc() {
+        const btn = event.target;
+        const originalText = btn.innerText;
+        btn.innerText = "Analyzing...";
+        btn.disabled = true;
+
+        const data = {
+            Recency: parseFloat(document.getElementById('lab_r').value),
+            Frequency: parseFloat(document.getElementById('lab_f').value),
+            monetary: parseFloat(document.getElementById('lab_m').value)
+        };
+        try {
+            const resp = await fetch('/api/calculate-lab', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const res = await resp.json();
+            if (res.error) throw new Error(res.error);
+
+            document.getElementById('lab_calc_res').style.display = 'block';
+            document.getElementById('lab_rfm_score').innerText = res.rfm_score.toFixed(1);
+            document.getElementById('lab_profit').innerText = '$' + res.profitability_score.toFixed(2);
+
+            // Show Segment Name
+            const recomDiv = document.getElementById('lab_recom');
+            recomDiv.innerHTML = `<strong>${res.segment}</strong><br><span style="font-size:0.85rem; color:#cbd5e1;">${res.recommendation}</span><br><span class="badge ${res.priority.toLowerCase()}">${res.priority}</span>`;
+        } catch (err) {
+            console.error(err);
+            alert("Lab Error: " + err.message);
+        } finally {
+            btn.innerText = originalText;
+            btn.disabled = false;
+        }
+    }
+</script>
+
+<style>
+    .dashboard-header {
+        margin-bottom: 2rem;
+    }
+
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        padding: 1.5rem;
+        text-align: center;
+    }
+
+    .stat-card label {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        color: #94a3b8;
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+
+    .stat-card .value {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #818cf8;
+    }
+
+    .stat-card.high-risk .value {
+        color: #f87171;
+    }
+
+    .main-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+    }
+
+    .report-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+    }
+
+    .report-table th,
+    .report-table td {
+        padding: 0.75rem;
+        text-align: left;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .text-danger {
+        color: #f87171;
+        font-weight: 600;
+    }
+
+    .chart-container {
+        margin-top: 1.5rem;
+    }
+
+    .bar-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1rem;
+        gap: 1rem;
+    }
+
+    .bar-label {
+        width: 120px;
+        font-size: 0.9rem;
+    }
+
+    .bar-track {
+        flex-grow: 1;
+        height: 12px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 6px;
+        overflow: hidden;
+    }
+
+    .bar-fill {
+        height: 100%;
+        border-radius: 6px;
+    }
+
+    .bar-fill.clv {
+        background: linear-gradient(90deg, #818cf8, #c084fc);
+    }
+
+    .bar-fill.revenue {
+        background: linear-gradient(90deg, #4ade80, #2dd4bf);
+    }
+
+    .bar-value {
+        width: 80px;
+        text-align: right;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .roi-card .form-grid {
+        margin-top: 1.5rem;
+    }
+
+    .btn-full {
+        width: 100%;
+        margin-top: 1rem;
+        padding: 0.75rem;
+        background: #818cf8;
+        border: none;
+        color: white;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .roi-result {
+        margin-top: 1.5rem;
+        text-align: center;
+        padding: 1rem;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 8px;
+    }
+
+    .roi-value {
+        font-size: 2.5rem;
+        font-weight: 800;
+        margin-bottom: 0.5rem;
+    }
+
+    .roi-result p {
+        font-size: 0.85rem;
+        color: #94a3b8;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        margin-top: 8px;
+    }
+
+    .badge.critical {
+        background: rgba(248, 113, 113, 0.2);
+        color: #f87171;
+        border: 1px solid #f87171;
+    }
+
+    .badge.high {
+        background: rgba(249, 115, 22, 0.2);
+        color: #fb923c;
+        border: 1px solid #fb923c;
+    }
+
+    .badge.medium {
+        background: rgba(251, 191, 36, 0.2);
+        color: #fbbf24;
+        border: 1px solid #fbbf24;
+    }
+
+    .badge.low,
+    .badge.normal {
+        background: rgba(74, 222, 128, 0.2);
+        color: #4ade80;
+        border: 1px solid #4ade80;
+    }
+
+    @media (max-width: 900px) {
+        .main-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
