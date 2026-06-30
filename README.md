@@ -1,4 +1,4 @@
-# 📊 Customer Lifetime Value Prediction System
+# 📊 Predictive Customer Lifetime Value (CLV) Engine & Prescriptive Simulator
 
 ## 📌 Project Overview
 
